@@ -1,0 +1,44 @@
+# ==========================================
+# Obsidian Vault Git Ignore
+# 目标：减少多端同步冲突，同时保留真正需要同步的配置
+# ==========================================
+
+# OS junk
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100/
+.Trashes/
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Local assistant / tool cache
+.claude/
+
+# Obsidian local state
+# 这些文件通常只描述“当前这台设备”正在打开什么、光标在哪、窗口怎么摆放
+.obsidian/workspace
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/app.json
+
+# Obsidian cache and trash
+.obsidian/cache/
+.trash/
+
+# Device-specific or sensitive plugin data
+# 只忽略明显容易冲突、带本地状态或可能带密钥的插件数据
+.obsidian/plugins/obsidian-git/data.json
+.obsidian/plugins/claudian/data.json
+.obsidian/plugins/share-to-notionnext/data.json
+.obsidian/plugins/Obsidian-Sync-to-Notion/data.json
+
+# Temporary / merge leftovers
+*.tmp
+*.temp
+*.bak
+*.orig
+*.swp
+*.swo
