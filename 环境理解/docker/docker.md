@@ -56,3 +56,45 @@ container 容器image 镜像Docker 临时网络build 缓存
 项目源码Dockerfilecompose.yml.env / config/.env数据库数据业务数据目录，例如 ./data必要的配置文件
 ```
 
+
+# 数据库
+|名称|当前值|含义|
+|---|---|---|
+|Compose 服务名|db|Docker 网络里的主机名，后端容器用它连接数据库|
+|容器名|flowtrace-db|Docker Desktop 里看到的容器名字|
+|PostgreSQL 数据库名|flowtrace|DBeaver 里要填的 Database|
+|PostgreSQL 用户名|flowtrace|DBeaver 里要填的 Username|
+|容器内端口|5432|Postgres 在容器里监听的端口|
+|宿主机端口|5433|你电脑/DBeaver 连接用的端口|
+
+关键在这里：
+
+docker-compose.yml (line 8)
+
+yaml
+
+`services: db: image: postgres:16 container_name: flowtrace-db`
+
+db 是服务名，flowtrace-db 是容器名。
+
+然后这里：
+
+yaml
+
+`POSTGRES_DB: ${POSTGRES_DB:-flowtrace} POSTGRES_USER: ${POSTGRES_USER:-flowtrace} POSTGRES_PASSWORD: ${PG_PASSWORD:-flowtrace_dev}`
+
+这才是 PostgreSQL 里的数据库名、用户名和密码。
+
+所以 DBeaver 从你电脑连接时应该填：
+
+text
+
+`Host: localhost Port: 5433 Database: flowtrace Username: flowtrace Password: flowtrace_dev`
+
+而后端容器内部连接时用的是：
+
+text
+
+`Host: db Port: 5432 Database: flowtrace Username: flowtrace Password: flowtrace_dev`
+
+这里 db:5432 只能在 Docker Compose 网络内部使用；DBeaver 在你电脑上，不认识 db 这个主机名，所以要用 localhost:5433
