@@ -4,15 +4,29 @@ Dockerfile  --build-->  Image 镜像  --run/up-->  Container 容器 `build` 建�
 compose.yml 负责统一管理多个容器：
 backend 容器 + frontend 容器 + db 容器 + redis 容器 ... `compose up` 启动的是容器 Container。
 
-Dockerfile：镜像的制作说明书
-Image：制作好的模板
+Dockerfile：镜像的制作说明书，**负责“怎么构建镜像”**
+
 Container：模板运行出来的实例
-Volume：容器外部保存数据的地方
-Compose：统一管理多个容器的配置文件
+
+
 docker build -t quant-backend ./backend
 docker run quant-backend
 docker compose build backend
 docker compose up -d
+
+
+|                                              |                                        |                                                         |
+| -------------------------------------------- | -------------------------------------- | ------------------------------------------------------- |
+| Dockerfile：镜像的制作说明书，**负责“怎么构建镜像”**           |                                        | Dockerfile --build--> Image 镜像 --run/up--> Container 容器 |
+| Image：制作好的模板                                 |                                        |                                                         |
+| Container：模板运行出来的实例 一个被隔离出来的、专门运行某个程序的小型运行环境 | 彼此隔离，但又可以通过 Docker Compose 创建的内部网络互相通信 | <br>docker compose down                                 |
+| Volume：容器外部保存数据的地方                           |                                        | docker compose up -d                                    |
+| Compose：统一管理多个容器的配置文件                        |                                        |                                                         |
+
+
+# 项目结构
+
+
 
 # 运行流程
 第一种：代码被打包进 image 里。
@@ -98,3 +112,10 @@ text
 `Host: db Port: 5432 Database: flowtrace Username: flowtrace Password: flowtrace_dev`
 
 这里 db:5432 只能在 Docker Compose 网络内部使用；DBeaver 在你电脑上，不认识 db 这个主机名，所以要用 localhost:5433
+
+
+
+# 附录
+
+### dockerfile
+介绍dockerfile文件的标准格式该怎么写，怎么阅读
