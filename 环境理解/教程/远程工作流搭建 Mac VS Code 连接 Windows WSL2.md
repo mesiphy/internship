@@ -5,17 +5,29 @@
 
 # 这篇指南写作初衷
 
-在搭建自己的工作流的过程中，试图参考网络上的一些教程，结果由于半吊子+心态急躁，导致安装过程坎坷不断，包括但不限于：wsl2连接本地网络出错、本地端口，通信不懂。
-在借助AI解决问题的过程中，问题就像乱麻一样越理越多，最后人崩溃、AI幻觉。
+在搭建自己的工作流的过程中，试图参考网络上的一些教程，结果由于半吊子+心态急躁，导致安装过程坎坷不断，包括但不限于：wsl2连接本地网络出错、本地端口，通信过程不懂、代理转发弄错。
+在借助AI解决问题的过程中，问题就像乱麻一样越理越多，最后 人崩溃、AI幻觉。
+
 **信息也许获取门槛降低，但优质的信息难得，更难得的是处理信息的能力**
+因此，我想借这个机会梳理一下搭建流程，丰富一下自己的知识。
+# Mac VS Code 连接 Windows WSL2
 
-
-# 搭建流程
-
-## 流程图示
-Mac 的 VS Code Remote-SSH → Windows 宿主机局域网 IP + 端口 → Windows 端口转发 → WSL2 Ubuntu 的 sshd
-
-## 搭建材料
+## 总体架构
+```text
+Mac VS Code
+   ↓ SSH
+Windows 局域网 IP:22
+   ↓ Windows 端口转发 portproxy
+WSL2 IP:22222 或 22
+   ↓
+WSL2 里的 sshd
+   ↓
+WSL2 里的 VS Code Server
+   ↓
+Mac VS Code 显示远程文件、终端、插件环境
+```
+![[Pasted image 20260603145018.png]]
+## 设备与软件清单
 本地主机：windows11 
 远程主机： mac air M1
 ### 相关软件
@@ -32,10 +44,11 @@ Mac 的 VS Code Remote-SSH → Windows 宿主机局域网 IP + 端口 → Window
 |                     |       |      |                                       |
 
 # 具体过程
-tips: shell 表示在windows的powershell 输入的命令； bash 表示在wsl2 或者mac输入的命令
 
-## 1. 完成上述软件配置
-### 安装WSL2
+**tips**: shell 表示在windows的powershell 输入的命令； bash 表示在wsl2 或者mac输入的命令
+
+## 1. Windows 与 WSL2 基础环境
+### 1.1 安装WSL2
 ```shell
 wsl --install
 ```
@@ -56,7 +69,7 @@ docker-desktop Stopped 2
 wsl --list --verbose # 列出已安装的 Linux 发行版;显示详细信息
 前面的 `*` 表示默认发行版
 ```
-### 进入WSL2
+### 1.2 初始化 Ubuntu
 第一次进入会提示创建用户名、密码，正常设置即可，此时的用户名、密码后续在连接的时候需要使用，需要记住
 - **登录后建议先更新系统包索引并升级**
 ```bash
@@ -85,22 +98,35 @@ nano hello.c   # 用一个简单编辑器打开文件（不熟可以用 nano）
 cat hello.c    # 显示文件内容
 
 ```
-- **安装常用的工具**
+### 1.3 安装常用的工具
 注意，这里的工具是在wsl2系统里面的，与windows不互通也不应当互通。
 尤其注意 npm 工具
 如果使用vscode的话，这里只需要在windows打开vscode 安装对应的插件即可。
 一般对于编程开发，必须的插件有 git python etc.
 	-  **Remote - WSL**
 	- docker destop (非必需)
-**安装SSH服务**
+### 1.4 安装并启动 SSH 服务
 
-## 2. 给WSL配置系统级别的代理——不必须，不需要跳过即可
+#### 1.4.1 设置自动启动
+
+
+## 2. WSL2 网络与代理配置（可选）
+
+### 2.1 检查当前是否需要配置代理
 在配置之前，需要想清楚是否需要配置代理，我的目的是为了处理：
 	- 在wsl2中使用codex连接太慢
 	- Git同步有时候可以有时候不可以
 	- sudo apt update 在开启电脑代理TUN模式的时候，无法连接
-### 配置系统级别代理
-####  查看当前代理
+
+检查网站连接情况,
+测试网络是否能连通 Ubuntu 软件源服务器，以及服务器返回了什么状态
+让系统按照当前的 DNS / hosts / NSS 解析规则，查询 `archive.ubuntu.com` 对应的 IP 地址。
+```bash
+curl -I http://archive.ubuntu.com/ubuntu
+getent hosts archive.ubuntu.com
+```
+### 2.2 配置系统级别代理
+#### 2.2.1 查看当前代理
 cat /etc/resolv.conf 查看当前LinuxDNS 解析配置文件，DNS 的作用是把域名转换成 IP 地址
 ```bash
 env | grep -i proxy
@@ -111,14 +137,7 @@ git config --global --get http.proxy
 git config --global --get https.proxy
 ```
 
-**检查当前是否需要配置代理**
-检查网站连接情况,
-测试网络是否能连通 Ubuntu 软件源服务器，以及服务器返回了什么状态
-让系统按照当前的 DNS / hosts / NSS 解析规则，查询 `archive.ubuntu.com` 对应的 IP 地址。
-```bash
-curl -I http://archive.ubuntu.com/ubuntu
-getent hosts archive.ubuntu.com
-```
+
 检查vscode进程情况
 ```bash
 pgrep -af vscode-server
@@ -141,9 +160,9 @@ ip route
 ```
 
 问外网时会先走 Windows 宿主机网关 `172.24.128.1`
-#### 临时配置测试是否能够成功通信
+#### 2.2.2 临时配置测试是否能够成功通信
 
-#### 永久配置
+#### 2.2.3 永久配置
 **修改 ~/.zshrc文件**
 在文件末尾加入： 注意这里的7897 应当与代理软件显示的端口保持一致
 
@@ -161,20 +180,8 @@ echo $ALL_PROXY
 ```
 
 
-##  远程连接的原理
-```text
-Mac VS Code
-   ↓ SSH
-Windows 局域网 IP:22
-   ↓ Windows 端口转发 portproxy
-WSL2 IP:22222 或 22
-   ↓
-WSL2 里的 sshd
-   ↓
-WSL2 里的 VS Code Server
-   ↓
-Mac VS Code 显示远程文件、终端、插件环境
-```
+## 3. SSH 通信链路与端口转发
+### 3.1 远程连接的原理
 **在mac的使用逻辑**
 ```text
 Mac
@@ -188,8 +195,8 @@ Windows 局域网 IP:22
 WSL2 Ubuntu 的 SSH 服务
 ```
 
-### 查看Windows 相关情况
-#### 查看windows局域网ip
+### 3.2 查看 Windows 相关情况
+#### 3.2.1 查看 Windows 局域网 IP
 ```shell
 ipconfig
 ipconfig | findstr IPv4
@@ -209,7 +216,7 @@ grep -n '^Port\|^#Port' /etc/ssh/sshd_config
 netstat -ano | findstr LISTENING | findstr :22 
 ```
 
-#### 查看 Windows 端口转发规则
+#### 3.2.2 配置 Windows portproxy
 ```SHELL
 netsh interface portproxy show all
 # 更现代的命令
@@ -226,29 +233,29 @@ Get-NetTCPConnection -LocalPort 22
 --------------- ----------  --------------- ----------
 0.0.0.0         22          172.24.138.246  22222
 ```
-#### 查看某个端口对应哪个程序
+#### 3.2.3 查看 WSL2 IP 与 sshd 端口
 ```shell
 netstat -ano | findstr :22 # 返回进程PID
 tasklist | findstr PID
 ```
-#### 查看防火墙规则
+#### 3.2.4 查看防火墙规则
 ```shell
 Get-NetFirewallRule | findstr OpenSSH
 Get-NetFirewallPortFilter | Where-Object {$_.LocalPort -eq 22}
 ```
 
-#### 配置ssh 
+#### 3.2.5 配置 SSH
 检查 SSH 配置文件里的端口
 ```bash
 grep -n '^Port\|^#Port' /etc/ssh/sshd_config
 ```
-#### 检查Sshd情况
+#### 3.2.6 检查 sshd 情况
 **sshd 服务是否运行、监听端口是否正确、能否从本机 SSH 登录**
 sudo systemctl status ssh --no-pager -l
 ss -tlnp | grep sshd
-## 3. 用 VS Code 远程 SSH
+## 4. Mac 端 VS Code Remote-SSH
 
-### 生成 SSH 密钥——远程电脑的密钥
+### 4.1 生成 SSH 密钥——远程电脑的密钥
 ```bash
 ssh-keygen -t ed25519 -C "your_email@example.com"
 ```
@@ -267,7 +274,36 @@ SSH 自带的密钥生成工具  -type 指定密钥类型为 `ed25519`  给这�
 
 Enter passphrase:这是给私钥设置密码。你可以设置，也可以直接回车留空
 
-### 保存密钥到本地主机的SSH配置文件以免密码登录
+### 4.2 把 Mac 公钥加入 WSL2 的 authorized_keys
+在 Mac 终端查看公钥并复制：
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+然后进入 WSL2 Ubuntu，创建 .ssh 目录：
+```bash
+mkdir -p ~/.ssh
+nano ~/.ssh/authorized_keys
+```
+把刚才复制的 Mac 公钥粘贴进去，保存退出。
+然后设置权限：
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+```
+#### 4.2.1 权限编码介绍
+Linux 文件权限：
+```text
+7 = 当前用户：可读、可写、可进入
+0 = 同组用户：没有任何权限
+0 = 其他用户：没有任何权限
+4 = 读 read
+2 = 写 write
+1 = 执行 execute
+6 = 可以读、可以写
+7 = 可以读、可以写、可以执行
+```
+### 4.3 配置 SSH config
+保存密钥到本地主机的SSH配置文件以免密码登录
 ```bash
 nano ~/.ssh/config
 ```
@@ -277,6 +313,46 @@ nano ~/.ssh/config
     HostName 192.168.1.23 # windows的局域网ip
     User mesiphy # WSL2 用户名
     Port 22 # 应当是windows的端口，默认是22
+```
+### 4.4 测试连接
+在使用 VS Code Remote-SSH 之前，建议先在 Mac 终端里直接测试 SSH 是否能连上。
+
+```bash
+ssh my-wsl2
+ssh mesiphy@192.168.1.23 -p 22
+```
+```text
+mesiphy        # WSL2 Ubuntu 用户名
+192.168.1.23   # Windows 的局域网 IP
+-p 22          # Windows 对外暴露的 SSH 端口
+```
+### 4.5 用 VS Code 连接
+确认普通 SSH 可以连接后，再打开 Mac 上的 VS Code。插件 Remote - SSH
+Command + Shift + P : Remote-SSH: Connect to Host...
+
+### 4.6 VScode调用插件的问题
+#### 通信问题
+由于未知原因，shell 的代理在被codex进程调用时，会被强制修改成 localhost 的形式，因此需要强制覆盖：
+要使用显示代理，配置文件 remote settings.json 文件
+
+```text
+{
+  "http.useLocalProxyConfiguration": false,
+  "http.proxy": "http://172.24.128.1:7897",
+  "http.proxySupport": "override"
+}
+```
+
+```text
+在 Remote-SSH 场景下，**不要把本地 VS Code，也就是 Mac 端的代理配置带到远端扩展宿主里使用**。
+尽量阻止 VS Code 把 Mac 本地代理或 sandbox localhost 代理注入给远端 Codex，并强制远端 Codex 使用 `http://172.24.128.1:7897`
+```
+
+#### 确认 codex插件通信
+
+```bash
+ps aux | grep -i "codex app-server" | grep -v grep
+tr '\0' '\n' < /proc/新CodexPID/environ | grep -i proxy
 ```
 
 # 写在最后
